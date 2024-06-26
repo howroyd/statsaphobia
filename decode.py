@@ -132,6 +132,7 @@ def main(password: bytes, filename: str = "SaveFile.txt"):
 
     rich.print(asjson)
 
+    plt.figure(1)
     playedmaps = {
         k: v
         for k, v in sorted(
@@ -140,6 +141,22 @@ def main(password: bytes, filename: str = "SaveFile.txt"):
     }
     plt.bar(playedmaps.keys(), playedmaps.values())
     plt.grid(which="major", axis="y", zorder=-1.0)
+    plt.title("Most Played Maps")
+    plt.xlabel("Map")
+    plt.ylabel("Times Played")
+
+    plt.figure(2)
+    commonghosts = {
+        k: v
+        for k, v in sorted(
+            asjson["mostCommonGhosts"]["value"].items(), key=lambda x: x[1], reverse=True
+        )
+    }
+    plt.grid(which="major", axis="y", zorder=-1.0)
+    plt.bar(commonghosts.keys(), commonghosts.values())
+    plt.title("Most Common Ghosts")
+    plt.xlabel("Ghost")
+    plt.ylabel("Times Encountered")
 
     plt.show()
 
