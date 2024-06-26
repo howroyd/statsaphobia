@@ -5,6 +5,7 @@ import pathlib
 from typing import MutableMapping
 
 import matplotlib.pyplot as plt
+import numpy as np
 import rich
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
@@ -132,31 +133,100 @@ def main(password: bytes, filename: str = "SaveFile.txt"):
 
     rich.print(asjson)
 
-    plt.figure(1)
+    #plt.style.use('seaborn-v0_8-darkgrid')
+    plt.style.use('bmh')
+
+    fig, ax = plt.subplots()
     playedmaps = {
         k: v
         for k, v in sorted(
             asjson["playedMaps"]["value"].items(), key=lambda x: x[1], reverse=True
         )
     }
-    plt.bar(playedmaps.keys(), playedmaps.values())
-    plt.grid(which="major", axis="y", zorder=-1.0)
-    plt.title("Most Played Maps")
-    plt.xlabel("Map")
-    plt.ylabel("Times Played")
+    playedmapsbars = ax.bar(playedmaps.keys(), playedmaps.values())
+    playedmapsbarbar_colour = playedmapsbars[0].get_facecolor()
+    for bar in playedmapsbars:
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.5,
+            round(bar.get_height(), 1),
+            horizontalalignment="center",
+            color=playedmapsbarbar_colour,
+            weight="bold",
+        )
+    # ax.grid(which="major", axis="y", zorder=-1.0)
+    ax.set_title("Most Played Maps")
+    ax.set_ylabel("Times Played")
+    ax.set_xticklabels((key.replace("_", " ").title() for key in playedmaps.keys()), rotation=90)
+    fig.tight_layout()
 
-    plt.figure(2)
+    fig2, ax2 = plt.subplots()
     commonghosts = {
         k: v
         for k, v in sorted(
-            asjson["mostCommonGhosts"]["value"].items(), key=lambda x: x[1], reverse=True
+            asjson["mostCommonGhosts"]["value"].items(),
+            key=lambda x: x[1],
+            reverse=True,
         )
     }
-    plt.grid(which="major", axis="y", zorder=-1.0)
-    plt.bar(commonghosts.keys(), commonghosts.values())
-    plt.title("Most Common Ghosts")
-    plt.xlabel("Ghost")
-    plt.ylabel("Times Encountered")
+    killedbyghosts = {
+        k: v
+        for k, v in sorted(
+            asjson["ghostKills"]["value"].items(), key=lambda x: x[1], reverse=True
+        )
+    }
+    ratioghosts = {
+        k: v
+        for k, v in sorted(
+            {
+                k: commonghosts.get(k, 0) / (killedbyghosts.get(k, 1) or 1)
+                for k in set(commonghosts.keys()) | set(killedbyghosts.keys())
+            }.items(),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+    }
+
+    ghostdata = {
+        k: {
+            "ratio": ratioghosts.get(k, 0),
+            "occurrence": commonghosts.get(k, 0),
+            "deaths": killedbyghosts.get(k, 0),
+        }
+        for k in ratioghosts.keys()
+    }
+    x = np.arange(len(ratioghosts.keys()))  # the label locations
+    width = 0.4  # the width of the bars
+    multiplier = 0
+    data = {
+        "occurrence": [x for x in commonghosts.values()],
+        "deaths": [x for x in killedbyghosts.values()],
+    }
+    for attribute, measurement in data.items():
+        offset = width * multiplier
+        rects = ax2.bar(x + offset, measurement, width, label=attribute)
+        # ax2.bar_label(rects, padding=0.5)
+        multiplier += 1
+        commonghostsbar_colour = rects[0].get_facecolor()
+        for bar in rects:
+            ax2.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.5,
+                round(bar.get_height(), 1),
+                horizontalalignment='center',
+                color=commonghostsbar_colour,
+                weight='bold'
+            )
+
+    # commonghostsbars = ax2.bar(ghostdata.keys(), ghostdata.values())
+
+    ax2.grid(which="major", axis="y", zorder=-1.0, alpha=0.33)
+    ax2.set_title("Ghost Data")
+    ax2.set_xlabel("Ghost")
+    ax2.set_ylabel("Times Encountered")
+    ax2.set_xticks(x + width, commonghosts.keys(), rotation=90)
+    ax2.legend(loc="upper right")
+    fig2.tight_layout()
 
     plt.show()
 
