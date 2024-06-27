@@ -1,3 +1,5 @@
 cryptography
+deepdiff
 matplotlib
 rich
+watchdog

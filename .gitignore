@@ -163,3 +163,5 @@ cython_debug/
 
 password.txt
 SaveFile.txt
+path.txt
+decrypted.json

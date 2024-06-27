@@ -1,17 +1,23 @@
 import enum
+import datetime
 import hashlib
 import json
 import pathlib
+import time
 from typing import MutableMapping
 
+import deepdiff
 import matplotlib.pyplot as plt
 import numpy as np
 import rich
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from watchdog.observers import Observer
+from watchdog.events import LoggingEventHandler
 
 PASSWORD: bytes = pathlib.Path("password.txt").open().read().encode("utf-8")
 BLOCK_SIZE: int = 16
-BYTES_PADDING: bytes = b"\x08"
+OUTFILE: pathlib.Path = "./decrypted.json"
+INFILE: pathlib.PurePath = pathlib.Path(pathlib.Path("path.txt").open().read())
 
 
 @enum.unique
@@ -26,13 +32,13 @@ class MapID(enum.IntEnum):
     EDGEFIELD = 5
     GRAFTON = 6
     PRISON = 7
-    POINT_HOPE = 8
+    ASYLUM = 8
     RIDGEVIEW = 9
     HIGHSCHOOL = 10
     TANGLEWOOD = 11
     WILLOW = 12
-    # ??? = 13 # Possibly just a logical gap/sentinel?
-    ASYLUM = 14  # TODO Confirm this was remapped from 8??
+    # ??? = 13 # Possibly just a logical gap/sentinel? Maybe the tutorial?
+    POINT_HOPE = 14
 
 
 def get_iv(raw_data: bytes) -> bytes:
@@ -68,7 +74,7 @@ def decypher(rawdata: bytes, password: bytes) -> bytes:
 
 def to_string(data: bytes) -> str:
     """Convert bytes to a string, removing padding"""
-    return data.rstrip(BYTES_PADDING).decode("utf-8").strip()
+    return data.rsplit(b"}", 1)[0].decode("utf-8").strip() + "}"
 
 
 def fix_string(data: str) -> str:
@@ -123,18 +129,68 @@ def fix_mapping(mapping: MutableMapping) -> MutableMapping:
     return mapping
 
 
+def handle_file_change(password):
+    time.sleep(2)  # Wait for the file to be written to so we don't hog the inode
+
+    with INFILE.open("rb") as f:
+        decryptedbytes = decypher(f.read(), password)
+
+    asjson: dict = fix_mapping(from_json(to_string(decryptedbytes)))
+
+    try:
+        with open(OUTFILE, "r") as f:
+            lastjson = json.load(f)
+
+            diff = deepdiff.DeepDiff(lastjson, asjson, ignore_order=True)
+
+            if diff:
+                rich.print(datetime.datetime.now())
+                rich.print(diff)
+
+            # for key, value in asjson.items():
+            #     if key in lastjson and lastjson[key] == value:
+            #         continue
+            #     else:
+            #         rich.print(f"{key} has changed from:")
+            #         rich.print(lastjson[key] if key in lastjson else 'None')
+            #         rich.print("to")
+            #         rich.print(value)
+            #         rich.print("")
+
+    except FileNotFoundError:
+        pass
+
+    with open(OUTFILE, "w") as f:
+        json.dump(asjson, f, indent=2)
+
+
+class Event(LoggingEventHandler):
+    def on_modified(self, event):
+        handle_file_change(PASSWORD)
+
+
 def main(password: bytes, filename: str = "SaveFile.txt"):
-    decryptedbytes = decypher(
-        pathlib.Path(filename or "SaveFile.txt").open("rb").read(), password
-    )
+    # rich.print(asjson)
 
-    asjson = from_json(to_string(decryptedbytes))
-    fix_mapping(asjson)
+    observer = Observer()
+    observer.schedule(Event(), INFILE.parent)
+    observer.start()
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+    observer.join()
 
-    rich.print(asjson)
+    ################################
 
-    #plt.style.use('seaborn-v0_8-darkgrid')
-    plt.style.use('bmh')
+    with INFILE.open("rb") as f:
+        decryptedbytes = decypher(f.read(), password)
+
+    asjson: dict = fix_mapping(from_json(to_string(decryptedbytes)))
+
+    # plt.style.use('seaborn-v0_8-darkgrid')
+    plt.style.use("bmh")
 
     fig, ax = plt.subplots()
     playedmaps = {
@@ -157,7 +213,9 @@ def main(password: bytes, filename: str = "SaveFile.txt"):
     # ax.grid(which="major", axis="y", zorder=-1.0)
     ax.set_title("Most Played Maps")
     ax.set_ylabel("Times Played")
-    ax.set_xticklabels((key.replace("_", " ").title() for key in playedmaps.keys()), rotation=90)
+    ax.set_xticklabels(
+        (key.replace("_", " ").title() for key in playedmaps.keys()), rotation=90
+    )
     fig.tight_layout()
 
     fig2, ax2 = plt.subplots()
@@ -213,9 +271,9 @@ def main(password: bytes, filename: str = "SaveFile.txt"):
                 bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + 0.5,
                 round(bar.get_height(), 1),
-                horizontalalignment='center',
+                horizontalalignment="center",
                 color=commonghostsbar_colour,
-                weight='bold'
+                weight="bold",
             )
 
     # commonghostsbars = ax2.bar(ghostdata.keys(), ghostdata.values())
