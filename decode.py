@@ -1,23 +1,25 @@
-import enum
 import datetime
+import enum
 import hashlib
 import json
 import pathlib
+import shutil
 import time
-from typing import MutableMapping
+from collections.abc import MutableMapping
 
 import deepdiff
 import matplotlib.pyplot as plt
 import numpy as np
 import rich
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
+from watchdog.observers import Observer
 
-PASSWORD: bytes = pathlib.Path("password.txt").open().read().encode("utf-8")
+PASSWORD: bytes = pathlib.Path("password.txt")
 BLOCK_SIZE: int = 16
 OUTFILE: pathlib.Path = "./decrypted.json"
 INFILE: pathlib.PurePath = pathlib.Path(pathlib.Path("path.txt").open().read())
+BACKUP: pathlib.Path = pathlib.Path(f"./backup/{INFILE.stem}_backup{INFILE.suffix}")
 
 
 @enum.unique
@@ -39,6 +41,48 @@ class MapID(enum.IntEnum):
     WILLOW = 12
     # ??? = 13 # Possibly just a logical gap/sentinel? Maybe the tutorial?
     POINT_HOPE = 14
+
+
+def preamble() -> None:
+    print(
+        r"""
+    GNU GENERAL PUBLIC LICENSE
+    Version 2, June 1991
+
+    More information, source code and license terms can be found at:
+    https://github.com/howroyd/statsaphobia
+
+    This software requires two files to be present in the same directory:
+
+    - A file named `password.txt` containing the password to decrypt the save file.
+    - A file named `path.txt` containing the path to the save file, e.g. C:\Users\Simon\AppData\LocalLow\Kinetic Games\Phasmophobia\SaveFile.txt
+
+    We will create a backup folder in the same directory as this programme to store backups of the save file.  Backups are made in startup and on every change to the save file before we read it.  Corruption may occur of the save file so we recommend retaining backups!
+
+    At no point will we write to the games save file, we ONLY read it.  No interrogation of the game is made.  No decompilation occurs. We only read the save file and decrypt it using the password you provide in `password.txt`.
+
+    We will write a decrypted version of the save file to `decrypted.json` in the same directory as this programme.
+
+    Press Ctrl+C to exit the programme."""
+    )
+
+    assert INFILE.exists(), f"Save file does not exist at {INFILE}"
+
+
+def get_next_backup_path() -> pathlib.Path:
+    """Get the next backup path."""
+    i = 0
+    while (next_backup := BACKUP.with_name(f"{BACKUP.stem}_{i}{BACKUP.suffix}")).exists():
+        i += 1
+
+    return next_backup
+
+
+def do_backup():
+    """Backup the save file."""
+    dest = get_next_backup_path()
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(INFILE, dest)
 
 
 def get_iv(raw_data: bytes) -> bytes:
@@ -117,20 +161,17 @@ def from_json(data: str) -> dict:
 def fix_mapping(mapping: MutableMapping) -> MutableMapping:
     playedmaps = mapping["playedMaps"]["value"]
 
-    playedmapsfixed = {
-        MapID(int(k)).name: int(v)
-        for k, v in dict(
-            this.split(":") for this in map(str.strip, playedmaps.split(","))
-        ).items()
-    }
+    playedmapsfixed = {MapID(int(k)).name: int(v) for k, v in dict(this.split(":") for this in map(str.strip, playedmaps.split(","))).items()}
 
     mapping["playedMaps"]["value"] = playedmapsfixed
 
     return mapping
 
 
-def handle_file_change(password):
-    time.sleep(2)  # Wait for the file to be written to so we don't hog the inode
+def handle_file_change(password: bytes):
+    time.sleep(2)  # Wait for the file to be written to so we don't lock the file too early
+
+    do_backup()
 
     with INFILE.open("rb") as f:
         decryptedbytes = decypher(f.read(), password)
@@ -165,15 +206,25 @@ def handle_file_change(password):
 
 
 class Event(LoggingEventHandler):
+    def __init__(self, password: bytes, *args, **kwargs) -> None:
+        self.password = password
+        super().__init__(*args, **kwargs)
+
     def on_modified(self, event):
-        handle_file_change(PASSWORD)
+        handle_file_change(self.password)
 
 
-def main(password: bytes, filename: str = "SaveFile.txt"):
-    # rich.print(asjson)
+def main():
+    preamble()
+
+    with PASSWORD.open() as f:
+        password: str = f.read().strip()
+
+    # Backup save file first!
+    do_backup()
 
     observer = Observer()
-    observer.schedule(Event(), INFILE.parent)
+    observer.schedule(Event(password.encode("utf-8")), INFILE.parent)
     observer.start()
     try:
         while True:
@@ -185,7 +236,7 @@ def main(password: bytes, filename: str = "SaveFile.txt"):
     ################################
 
     with INFILE.open("rb") as f:
-        decryptedbytes = decypher(f.read(), password)
+        decryptedbytes = decypher(f.read(), password.encode("utf-8"))
 
     asjson: dict = fix_mapping(from_json(to_string(decryptedbytes)))
 
@@ -193,12 +244,7 @@ def main(password: bytes, filename: str = "SaveFile.txt"):
     plt.style.use("bmh")
 
     fig, ax = plt.subplots()
-    playedmaps = {
-        k: v
-        for k, v in sorted(
-            asjson["playedMaps"]["value"].items(), key=lambda x: x[1], reverse=True
-        )
-    }
+    playedmaps = {k: v for k, v in sorted(asjson["playedMaps"]["value"].items(), key=lambda x: x[1], reverse=True)}
     playedmapsbars = ax.bar(playedmaps.keys(), playedmaps.values())
     playedmapsbarbar_colour = playedmapsbars[0].get_facecolor()
     for bar in playedmapsbars:
@@ -213,9 +259,7 @@ def main(password: bytes, filename: str = "SaveFile.txt"):
     # ax.grid(which="major", axis="y", zorder=-1.0)
     ax.set_title("Most Played Maps")
     ax.set_ylabel("Times Played")
-    ax.set_xticklabels(
-        (key.replace("_", " ").title() for key in playedmaps.keys()), rotation=90
-    )
+    ax.set_xticklabels((key.replace("_", " ").title() for key in playedmaps.keys()), rotation=90)
     fig.tight_layout()
 
     fig2, ax2 = plt.subplots()
@@ -227,19 +271,11 @@ def main(password: bytes, filename: str = "SaveFile.txt"):
             reverse=True,
         )
     }
-    killedbyghosts = {
-        k: v
-        for k, v in sorted(
-            asjson["ghostKills"]["value"].items(), key=lambda x: x[1], reverse=True
-        )
-    }
+    killedbyghosts = {k: v for k, v in sorted(asjson["ghostKills"]["value"].items(), key=lambda x: x[1], reverse=True)}
     ratioghosts = {
         k: v
         for k, v in sorted(
-            {
-                k: commonghosts.get(k, 0) / (killedbyghosts.get(k, 1) or 1)
-                for k in set(commonghosts.keys()) | set(killedbyghosts.keys())
-            }.items(),
+            {k: commonghosts.get(k, 0) / (killedbyghosts.get(k, 1) or 1) for k in set(commonghosts.keys()) | set(killedbyghosts.keys())}.items(),
             key=lambda x: x[1],
             reverse=True,
         )
@@ -290,4 +326,4 @@ def main(password: bytes, filename: str = "SaveFile.txt"):
 
 
 if __name__ == "__main__":
-    main(PASSWORD)
+    main()
