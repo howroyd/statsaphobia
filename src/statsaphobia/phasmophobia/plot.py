@@ -103,7 +103,11 @@ def do_plot(infile: pathlib.Path, outdir: pathlib.Path) -> dict[str, pathlib.Pat
 
     data: dict = json.loads(infile.read_text())
 
-    return {
+    ret = {
         "played_maps": plot_played_maps(data, outdir),
         "common_ghosts": plot_common_ghosts(data, outdir),
     }
+
+    plt.close("all")
+
+    return ret
