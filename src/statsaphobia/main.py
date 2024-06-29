@@ -64,7 +64,7 @@ def main(infile: pathlib.Path, outdir: pathlib.Path, backupdir: pathlib.Path, pa
         if oldfile:
             diff.print_diff(oldfile, jsonfile)
         html.do_html(jsonfile, outdir)
-        graphfiles: dict[str, pathlib.Path] = plot.do_plot(jsonfile, outdir / "graphs")
+        plot.do_plot(jsonfile, outdir / "graphs")
         oldfile = jsonfile
 
     on_change()

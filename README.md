@@ -15,5 +15,5 @@
 To build the exe run:
 
 ```shell
-pyinstaller -n statsaphobia.exe --onefile run.py
+python build.py
 ```

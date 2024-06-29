@@ -1,6 +1,9 @@
 import json
 import pathlib
 
+import matplotlib as mpl
+
+mpl.use("Agg")  # Stops matplotlib using an x server, I think
 import matplotlib.pyplot as plt
 
 
@@ -95,10 +98,12 @@ def plot_common_ghosts(data: dict, outdir: pathlib.Path) -> pathlib.Path:
     return outdir / "common_ghosts.png"
 
 
-def do_plot(infile: pathlib.Path, outdir: pathlib.Path) -> pathlib.Path:
+def do_plot(infile: pathlib.Path, outdir: pathlib.Path) -> dict[str, pathlib.Path]:
     outdir.mkdir(parents=True, exist_ok=True)
 
     data: dict = json.loads(infile.read_text())
 
-    played_maps: pathlib.Path = plot_played_maps(data, outdir)
-    common_ghosts: pathlib.Path = plot_common_ghosts(data, outdir)
+    return {
+        "played_maps": plot_played_maps(data, outdir),
+        "common_ghosts": plot_common_ghosts(data, outdir),
+    }
