@@ -1,5 +1,6 @@
 cryptography
 deepdiff
+json2html
 matplotlib
 rich
 watchdog

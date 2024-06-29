@@ -1,0 +1,51 @@
+[build-system]
+requires = ["pytest", "pytest-cov", "setuptools>=70", "PyInstaller", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "statsaphobia"
+version = "0.0.0"
+requires-python = ">=3.12"
+authors = [
+    { name = "Simon Howroyd", email = "drgreengiant-github@port87.com" },
+]
+maintainers = [
+    { name = "Simon Howroyd", email = "drgreengiant-github@port87.com" }
+]
+description = "A save file viewer and graph generator for ES3 save files"
+readme = "README.md"
+keywords = ['es3', 'phasmophobia']
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dynamic = ["dependencies"]
+
+[project.urls]
+"Homepage" = "https://github.com/howroyd/"
+"Repository" = "https://github.com/howroyd/statsaphobia"
+"Bug Tracker" = "https://github.com/howroyd/statsaphobia/issues"
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[project.optional-dependencies]
+dev = ["ruff", "PyInstaller"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "2.0"
+python_files = ["tests/**/test_*.py", "tests/**/*_test.py"]
+addopts = [
+    "--cov=.",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+    #  "--cov-fail-under=95",
+]
+filterwarnings = "ignore::DeprecationWarning"

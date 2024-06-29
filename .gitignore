@@ -162,6 +162,10 @@ cython_debug/
 #.idea/
 
 password.txt
-SaveFile.txt
 path.txt
-decrypted.json
+
+backup/
+decoded/
+decrypted/
+graphs/
+index.html

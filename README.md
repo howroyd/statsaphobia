@@ -9,4 +9,11 @@
 > [!TIP]
 > You will need to obtain a password in order to decrypt the save file. No functionality is provided to edit the save file, this is a fancy viewer only.
 
-![Example](assets/Screenshot_16.png)
+![Most common ghosts](assets/common_ghosts.png)
+![Most played maps](assets/played_maps.png)
+
+To build the exe run:
+
+```shell
+pyinstaller -n statsaphobia.exe --onefile run.py
+```
