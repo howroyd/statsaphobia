@@ -4,7 +4,7 @@ import time
 from rich import print
 
 from . import backup, decrypt, diff, html, watcher
-from .phasmophobia import decode, plot
+from .phasmophobia import decode, plot, bot
 
 BLOCK_SIZE: int = 16
 
@@ -65,6 +65,7 @@ def main(infile: pathlib.Path, outdir: pathlib.Path, backupdir: pathlib.Path, pa
             diff.print_diff(oldfile, jsonfile)
         html.do_html(jsonfile, outdir)
         plot.do_plot(jsonfile, outdir / "graphs")
+        bot.do_bot(jsonfile, outdir / "bot")
         oldfile = jsonfile
 
     on_change()
