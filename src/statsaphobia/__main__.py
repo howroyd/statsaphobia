@@ -1,8 +1,12 @@
 import pathlib
 
-from . import main
+from rich import print as rprint
+
+from . import license, main
 
 if __name__ == "__main__":
+    rprint(license.rich_preamble())
+
     PASSWORD_FILE: pathlib.Path = pathlib.Path("password.txt")
     INFILE_FILE: pathlib.Path = pathlib.Path("path.txt")
 
