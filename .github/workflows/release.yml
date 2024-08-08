@@ -29,7 +29,6 @@ jobs:
 
     - name: Dependencies
       run: |
-        sudo apt update
         pip install --upgrade pip
 
     - name: Build the executable
