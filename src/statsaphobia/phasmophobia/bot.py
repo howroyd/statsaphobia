@@ -1,4 +1,5 @@
 import json
+import logging
 import pathlib
 
 
@@ -31,6 +32,6 @@ def do_bot(infile: pathlib.Path, outdir: pathlib.Path) -> dict[str, pathlib.Path
             with (outdir / f"{k.lower()}.txt").open("w") as f:
                 f.write(str(v))
         else:
-            print(f"Bot skipping {k} as it is not a simple type")
+            logging.debug(f"Bot skipping {k} as it is not a simple type")
 
     return {"root": outdir}

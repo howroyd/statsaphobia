@@ -1,3 +1,4 @@
+import logging
 import pathlib
 import threading
 from collections.abc import Callable
@@ -35,7 +36,7 @@ class FileWatcher:
         observer = Observer()
         observer.schedule(self.event, self.path.parent)
         observer.start()
-        print(f"Watching {self.path}")
+        logging.info(f"Watching {self.path}")
         self.kill_event.wait()
         observer.stop()
         observer.join()
