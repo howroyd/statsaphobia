@@ -59,6 +59,7 @@ def info_rich() -> str:
 
 def preamble_rich() -> None:
     console = rconsole.Console(record=True)
-    console.print(rpanel.Panel.fit(license(), title="License"))
-    console.print(rpanel.Panel.fit(info_rich(), title="Information"))
-    return console.export_text()
+    with console.capture() as capture:
+        console.print(rpanel.Panel.fit(license(), title="License"))
+        console.print(rpanel.Panel.fit(info_rich(), title="Information"))
+    return capture.get()

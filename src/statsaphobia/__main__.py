@@ -5,7 +5,8 @@ from . import license, main, mylogging
 
 
 def print_license() -> None:
-    logging.info(license.preamble_rich())
+    string = license.preamble_rich()
+    logging.critical(string)
 
 
 if __name__ == "__main__":
