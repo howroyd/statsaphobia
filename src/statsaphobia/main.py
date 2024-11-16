@@ -1,11 +1,11 @@
 import pathlib
 import time
-from typing import NoReturn
+from typing import Final, NoReturn
 
 from . import backup, decrypt, diff, html, watcher
 from .phasmophobia import bot, decode, plot
 
-BLOCK_SIZE: int = 16
+BLOCK_SIZE: Final[int] = 16
 
 
 def main(infile: pathlib.Path, outdir: pathlib.Path, backupdir: pathlib.Path, password: bytes) -> NoReturn:

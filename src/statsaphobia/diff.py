@@ -1,12 +1,10 @@
-import datetime
 import json
 import logging
 import pathlib
-import json
 import deepdiff
 import rich.console as rconsole
-import rich.panel as rpanel
 import rich.json as rjson
+
 
 def print_diff(oldfile: pathlib.Path, newfile: pathlib.Path) -> None:
     """Print the difference between two files"""

@@ -3,16 +3,17 @@ import pathlib
 import threading
 from collections.abc import Callable
 
-from watchdog.events import LoggingEventHandler
+from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
 
-class Event(LoggingEventHandler):
+class Event(FileSystemEventHandler):
     def __init__(self, eventhandler: Callable, *args, **kwargs) -> None:
         self.eventhandler = eventhandler
         super().__init__(*args, **kwargs)
 
     def on_modified(self, event):
+        logging.info(f"File {event.src_path} has been modified")
         self.eventhandler()
 
 
@@ -21,7 +22,7 @@ class FileWatcher:
         self.eventhandler = eventhandler
         self.path = path
         self.event = Event(eventhandler)
-        self.thread = threading.Thread(target=self._thread)
+        self.thread = threading.Thread(target=self._thread, name=f"FileWatcher_{path.stem}")
         self.kill_event = threading.Event()
 
     def __enter__(self):
@@ -34,7 +35,7 @@ class FileWatcher:
 
     def _thread(self):
         observer = Observer()
-        observer.schedule(self.event, self.path.parent)
+        observer.schedule(self.event, self.path)
         observer.start()
         logging.info(f"Watching {self.path}")
         self.kill_event.wait()

@@ -4,12 +4,16 @@ import logging
 import logging.handlers
 import multiprocessing as mp
 import pathlib
+import sys
 import threading
 import time
+from typing import TypeAlias
 
 import rich.logging as rlogging
 
-QueueHandler = logging.handlers.QueueHandler
+from . import license
+
+QueueHandler: TypeAlias = logging.handlers.QueueHandler
 
 
 class TerminateSentinel:
@@ -69,7 +73,7 @@ class Logger:
         self.in_queue: mp.Queue = mp.Queue(maxsize=10)
 
     @classmethod
-    def setup_logging_library(cls, queue_handler: logging.handlers.QueueHandler, *, level: int | None = None):
+    def setup_logging_library(cls, queue_handler: logging.handlers.QueueHandler, *, level: LoggingLevel = LoggingLevel.notset):
         """Setup the main logger for the whole program."""
         this_process = mp.current_process().name
 
@@ -79,7 +83,7 @@ class Logger:
         rootlogger = logging.getLogger()
         rootlogger.setLevel(level if level is not None else logging.WARN)
         rootlogger.handlers = [queue_handler]
-        logging.critical(f"Logger registered ({this_process=})")
+        logging.debug(f"Logger registered ({this_process=})")
 
     @property
     def _queue(self) -> "mp.Queue[logging.LogRecord | TerminateSentinel]":
@@ -94,6 +98,7 @@ class Logger:
         return logging.handlers.QueueHandler(self._queue)
 
     def __enter__(self):
+        license.print_preamble()
         self.listener_process = mp.Process(target=self.listener, args=(self.config, self._queue), name=__class__.__name__)
         self.listener_process.start()
         return self
@@ -101,6 +106,12 @@ class Logger:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._queue.put(TerminateSentinel())
         self.listener_process.join(timeout=3)
+        if self.listener_process.is_alive():
+            print("Logger listener process did not shut down, terminating", file=sys.stderr)
+
+    @property
+    def is_alive(self) -> bool:
+        return self.listener_process.is_alive()
 
     @staticmethod
     def listener(config: LoggingConfig, in_queue: "mp.Queue[logging.LogRecord | TerminateSentinel]"):
@@ -110,18 +121,14 @@ class Logger:
         richstdouthandler.setFormatter(logging.Formatter("%(message)s", config.timeFormat))
 
         logging.basicConfig(
-            level=config.level.get_level(),  # Change this to change the global logging level. Normally .INFO, or if needed, .DEBUG
+            level=logging.WARN,  # config.level.get_level(),  # Change this to change the global logging level. Normally .INFO, or if needed, .DEBUG
             format=config.logFormat,
             datefmt=config.timeFormat,
-            handlers=[
-                config.make_RotatingFileHandler(),
-                richstdouthandler,
-            ],
+            handlers=[richstdouthandler, config.make_RotatingFileHandler()],
         )
         logging.Formatter.converter = config.timeFormatter  # type: ignore
-        logging.log(logging.root.getEffectiveLevel(), f"Logging initialised for {__file__}")
 
-        logging.critical(f"Logger listener process staring up (thread={threading.currentThread().name})")
+        logging.debug(f"Logger listener process staring up (thread={threading.currentThread().name})")
 
         while True:
             try:
@@ -130,7 +137,17 @@ class Logger:
                     logging.warning("Logger listener received a None, skipping")
                     continue
                 if isinstance(record, TerminateSentinel):
-                    logging.info("Logger listener received an ExitSentinel, shutting down")
+                    logging.debug("Logger listener received an ExitSentinel, getting last messages then shutting down")
+                    while True:
+                        try:
+                            record = in_queue.get_nowait()
+                            if isinstance(record, TerminateSentinel):
+                                # In case of multiple sentinels we can ignore them
+                                continue
+                            logger: logging.Logger = logging.getLogger(record.name)
+                            logger.handle(record)
+                        except mp.queues.Empty:
+                            break
                     break
                 logger: logging.Logger = logging.getLogger(record.name)
                 logger.handle(record)
@@ -141,4 +158,5 @@ class Logger:
                 print(f"Error in Logger listener: {e}", file=sys.stderr)
                 traceback.print_exc(file=sys.stderr)
 
-        logging.critical("Logger listener process joining")
+        logging.info("Logger shutting down")
+        logging.shutdown()
